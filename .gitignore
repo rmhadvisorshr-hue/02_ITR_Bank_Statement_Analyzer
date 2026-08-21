@@ -1,0 +1,10 @@
+node_modules
+work
+outputs
+data
+docs
+.gemini/
+__pycache__
+*.pyc
+.env
+

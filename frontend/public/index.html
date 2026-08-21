@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bank Statement Analyzer | PDF to Excel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{BASE_PATH}}/styles.css" />
+  <script>window.__BASE_PATH__ = "{{BASE_PATH}}"; window.__BACKEND_URL__ = "{{BACKEND_URL}}";</script>
+</head>
+
+<body>
+  <!-- Background Glow Elements -->
+  <div class="bg-glow glow-primary"></div>
+  <div class="bg-glow glow-secondary"></div>
+  <div class="bg-grid"></div>
+
+  <main class="shell">
+    <section class="glass-panel">
+      <header class="topbar">
+        <div class="brand">
+          <div class="logo-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+              <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+              <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+            </svg>
+          </div>
+          <div>
+            <h1>Bank Statement Analyzer</h1>
+            <p>Convert bank PDFs into reconciled Excel workbooks</p>
+          </div>
+        </div>
+        <div class="nav-links">
+          <a href="{{BASE_PATH}}/reports" class="nav-link">My Reports</a>
+          <a href="/dashboard" class="nav-link">&larr; Dashboard</a>
+          <div class="badge-premium">PRO</div>
+        </div>
+      </header>
+
+      <form id="uploadForm">
+        <label id="dropZone" class="drop-zone">
+          <input id="pdfInput" type="file" name="pdfs" accept="application/pdf,.pdf" multiple />
+          <div class="drop-content">
+            <div class="drop-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+            </div>
+            <span class="drop-title">Upload Statements</span>
+            <span class="drop-copy">Drag & drop your bank PDFs here or click to browse</span>
+            <span class="drop-hint">Supports files up to 100 MB each</span>
+          </div>
+        </label>
+
+        <div id="fileListContainer" class="file-list-container" hidden>
+          <div class="file-list-header">
+            <h3>Uploaded statements</h3>
+            <p>Enter a password for each PDF if it is protected.</p>
+          </div>
+          <div class="file-table">
+            <div class="file-table-head">
+              <div class="col-id">#</div>
+              <div class="col-file">FILE</div>
+              <div class="col-size">SIZE</div>
+              <div class="col-pwd">PDF PASSWORD</div>
+              <div class="col-action"></div>
+            </div>
+            <div id="fileTableBody" class="file-table-body">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <div class="mode-selector-container">
+          <div class="segmented-control">
+            <input type="radio" id="mode-normal" name="processingMode" value="normal" checked>
+            <label for="mode-normal" class="segment-btn"
+              data-tooltip="Use this when you can select/search the text in the PDF - e-statements downloaded from net-banking or emailed as a digital statement. Reads the text directly: fastest and most accurate.">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              PDF to Excel
+              <span class="info-dot" aria-hidden="true">i</span>
+            </label>
+
+            <input type="radio" id="mode-scanned" name="processingMode" value="scanned">
+            <label for="mode-scanned" class="segment-btn"
+              data-tooltip="Use this when the PDF is a photo or scan - a photographed passbook, a scanned/faxed statement, or text you can't click-select or copy. Runs OCR to read it instead: slower, and worth double-checking the output.">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="7" y1="12" x2="17" y2="12"></line></svg>
+              Scanned PDF to Excel
+              <span class="info-dot" aria-hidden="true">i</span>
+            </label>
+            <div class="segment-highlight"></div>
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <div class="file-summary">
+            <strong id="fileCount" class="text-gradient">No files selected</strong>
+            <span id="fileNames" class="file-names-marquee"></span>
+          </div>
+          <button id="generateBtn" type="submit" class="btn-primary" disabled>
+            <span>Analyze Statements</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </form>
+
+      <div id="status" class="status-banner idle">Ready. Add a statement to begin.</div>
+
+      <section id="result" class="result-dashboard" hidden>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg></div>
+            <div class="metric-data">
+              <span>Statements</span>
+              <strong id="statementsMetric">0</strong>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path
+                  d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg></div>
+            <div class="metric-data">
+              <span>Transactions</span>
+              <strong id="transactionsMetric">0</strong>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                <polyline points="17 6 23 6 23 12" />
+              </svg></div>
+            <div class="metric-data">
+              <span>Total Credits</span>
+              <strong id="receiptsMetric">0</strong>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
+                <polyline points="17 18 23 18 23 12" />
+              </svg></div>
+            <div class="metric-data">
+              <span>Total Debits</span>
+              <strong id="paymentsMetric">0</strong>
+            </div>
+          </div>
+        </div>
+
+        <a id="downloadLink" class="btn-download" href="#">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Download Analysis
+        </a>
+      </section>
+    </section>
+  </main>
+
+  <!-- Overlay Loader -->
+  <div id="loaderOverlay" class="loader-overlay hidden">
+    <div class="loader-glass">
+      <div class="hologram-spinner">
+        <div class="ring r1"></div>
+        <div class="ring r2"></div>
+      </div>
+      <h2 class="text-gradient">Processing Your Statements</h2>
+      <p class="loader-sub">This usually takes a few moments...</p>
+
+      <div class="terminal-box">
+        <span id="tickerText" class="ticker-text">Getting started...</span>
+      </div>
+
+      <!-- Real-Time Progress Bar -->
+      <div id="pdfProgressContainer" class="progress-container hidden">
+        <div class="progress-header">
+          <span class="progress-label">Extracting Transactions</span>
+          <span id="pdfProgressText" class="progress-pct">0%</span>
+        </div>
+        <div class="progress-track">
+          <div id="pdfProgressBar" class="progress-fill"></div>
+        </div>
+      </div>
+
+      <div class="live-metrics">
+        <div class="live-metric">
+          <span class="lm-label">Status</span>
+          <span id="auditMetricStatus" class="lm-val text-blue">Starting</span>
+        </div>
+        <div class="live-metric">
+          <span class="lm-label">Current Step</span>
+          <span id="auditMetricRecon" class="lm-val text-purple">Standby</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{BASE_PATH}}/user-id.js"></script>
+  <script src="{{BASE_PATH}}/app.js"></script>
+</body>
+
+</html>

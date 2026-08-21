@@ -1,0 +1,52 @@
+name: Deploy Backend
+
+# Only touches backend/ on the Hostinger VPS. The frontend deploys
+# separately via Vercel's own GitHub integration (not this workflow).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Trust VPS host key
+        run: ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      # --delete keeps the VPS copy identical to the repo, but .env/data/work/
+      # outputs are excluded so redeploys never wipe secrets or in-flight jobs.
+      - name: Rsync backend code to VPS
+        run: |
+          rsync -avz --delete \
+            --exclude='.env' \
+            --exclude='node_modules/' \
+            --exclude='__pycache__/' \
+            --exclude='data/' \
+            --exclude='work/' \
+            --exclude='outputs/' \
+            backend/ \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_APP_DIR }}/"
+
+      - name: Install dependencies and restart service
+        run: |
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            set -e
+            cd "${{ secrets.VPS_APP_DIR }}"
+            npm ci --omit=dev
+            pip3 install --break-system-packages -r requirements.txt
+            chown -R itrapp:itrapp "${{ secrets.VPS_APP_DIR }}"
+            systemctl restart itr-backend
+            sleep 3
+            curl -sf http://127.0.0.1:8765/health -o /dev/null && echo "itr-backend is up"
+          '

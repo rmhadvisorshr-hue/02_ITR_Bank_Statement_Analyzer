@@ -1,0 +1,12 @@
+{
+  "name": "bank-statement-analyzer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Node dependency for the Excel-generation step (build_hdfc_workbook.mjs / build_hdfc_workbook_cli.mjs) that the Python backend invokes as a CLI subprocess. Not a server - the backend is FastAPI (see analysis_service/main.py).",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "exceljs": "4.4.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "itr-bank-statement-analyzer-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static frontend for the ITR Bank Statement Analyzer. No build step for local dev, no dependencies. build.mjs does a one-time {{BACKEND_URL}} substitution for the Vercel production build only.",
+  "scripts": {
+    "dev": "node dev-server.mjs",
+    "build": "node build.mjs"
+  }
+}
