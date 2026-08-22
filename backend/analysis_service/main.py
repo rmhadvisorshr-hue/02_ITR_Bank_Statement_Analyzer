@@ -167,14 +167,20 @@ async def health():
     return {"status": "ok"}
 
 
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    return _render_template(PUBLIC_DIR / "index.html", _base_path(request))
+# frontend/ is a sibling of backend/ in local dev (and when embedded in the
+# unified portal), but doesn't exist at all when this backend is deployed
+# standalone (e.g. on a VPS) with the frontend served separately by Vercel -
+# in that shape, this backend only needs to answer /api/*, /download/*, and
+# /health, so these routes and the static mount below are skipped entirely
+# rather than crashing the app at startup.
+if PUBLIC_DIR.exists():
+    @app.get("/", response_class=HTMLResponse)
+    async def index(request: Request):
+        return _render_template(PUBLIC_DIR / "index.html", _base_path(request))
 
-
-@app.get("/reports", response_class=HTMLResponse)
-async def reports_page(request: Request):
-    return _render_template(PUBLIC_DIR / "reports.html", _base_path(request))
+    @app.get("/reports", response_class=HTMLResponse)
+    async def reports_page(request: Request):
+        return _render_template(PUBLIC_DIR / "reports.html", _base_path(request))
 
 
 @app.get("/download/{job_id}")
@@ -402,4 +408,5 @@ async def api_generate(
 
 # Registered last: a request only reaches here if nothing above matched, so
 # this can never shadow /api/*, /download/*, /health, /, or /reports.
-app.mount("/", StaticFiles(directory=str(PUBLIC_DIR)), name="static")
+if PUBLIC_DIR.exists():
+    app.mount("/", StaticFiles(directory=str(PUBLIC_DIR)), name="static")
