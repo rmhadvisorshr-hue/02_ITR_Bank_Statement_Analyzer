@@ -38,20 +38,14 @@ jobs:
             backend/ \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_APP_DIR }}/"
 
-      # Node and the Python venv are isolated siblings of VPS_APP_DIR (e.g.
-      # /opt/itr-backend/{node,venv,app}) - never system-wide npm/pip, so
-      # this project's runtime never touches (or conflicts with) any other
-      # project's on the same VPS.
       - name: Install dependencies and restart service
         run: |
           ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             set -e
-            APP_DIR="${{ secrets.VPS_APP_DIR }}"
-            RUNTIME_DIR="$(dirname "$APP_DIR")"
-            cd "$APP_DIR"
-            "$RUNTIME_DIR/node/bin/npm" ci --omit=dev
-            "$RUNTIME_DIR/venv/bin/pip" install -r requirements.txt
-            chown -R itrapp:itrapp "$APP_DIR"
+            cd "${{ secrets.VPS_APP_DIR }}"
+            /opt/itr-backend/node/bin/npm ci --omit=dev
+            /opt/itr-backend/venv/bin/pip install -r requirements.txt
+            chown -R itrapp:itrapp "${{ secrets.VPS_APP_DIR }}"
             systemctl restart itr-backend
             sleep 3
             curl -sf http://127.0.0.1:8765/health -o /dev/null && echo "itr-backend is up"
