@@ -42,8 +42,9 @@ jobs:
         run: |
           ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             set -e
+            export PATH="/opt/itr-backend/node/bin:$PATH"
             cd "${{ secrets.VPS_APP_DIR }}"
-            /opt/itr-backend/node/bin/npm ci --omit=dev
+            npm ci --omit=dev
             /opt/itr-backend/venv/bin/pip install -r requirements.txt
             chown -R itrapp:itrapp "${{ secrets.VPS_APP_DIR }}"
             systemctl restart itr-backend
