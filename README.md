@@ -40,6 +40,14 @@ The backend is a single Python/FastAPI process (`analysis_service/main.py`). It 
 3. Start the server:
 
    `python -m uvicorn analysis_service.main:app --reload --host 0.0.0.0 --port 8765`
+   `python -m uvicorn analysis_service.main:app --host 0.0.0.0 --port 8765`
+
+   On Windows, drop `--reload`: uvicorn forces the server process onto
+   `WindowsSelectorEventLoopPolicy` whenever `--reload` (or `--workers > 1`)
+   is used, and that loop can't spawn subprocesses on Windows -
+   `pipeline.py`'s `asyncio.create_subprocess_exec` calls (to run
+   `extract_bank.py` and the Node workbook builder) fail with
+   `NotImplementedError`. Linux/macOS are unaffected.
 
 4. Open:
 

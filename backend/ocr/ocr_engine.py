@@ -169,19 +169,30 @@ def _normalize_ocr_text(text):
     return text
 
 
-def extract_text_with_ocr(path, manual_passwords=None):
+def extract_text_with_ocr(path, manual_passwords=None, on_progress=None):
     """
     Extract text from a PDF using OCR (pdf2image + pytesseract).
     Returns (text, num_pages, password_used) to match the signature of the existing read_pdf_text.
+
+    A 50-100 page scanned statement can take tens of minutes to OCR page
+    by page, during which this used to report nothing at all - from the
+    caller's side (and the UI, once extract_bank.py's progress lines reach
+    it) that's indistinguishable from having hung outright. `on_progress`,
+    when given, is called as `on_progress(current_page, total_pages)`
+    once per page so something keeps moving for as long as OCR is
+    actually still running.
     """
     last_error = None
     for password in _password_candidates(path, manual_passwords):
         try:
             extracted_text = []
             num_pages = 0
+            total_pages = _page_count(path, password)
             custom_config = r'--oem 3 --psm 6'
             for image in _iter_page_images(path, password):
                 num_pages += 1
+                if on_progress:
+                    on_progress(num_pages, total_pages)
                 processed_image = preprocess_image(image)
                 text = pytesseract.image_to_string(processed_image, config=custom_config)
                 extracted_text.append(text)

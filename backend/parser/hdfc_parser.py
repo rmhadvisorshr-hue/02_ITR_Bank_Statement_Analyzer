@@ -175,6 +175,11 @@ def build_hdfc_transactions(text, pdf_name, bank, st_from, st_to, opening_balanc
             all_dates = list(HDFC_VALUE_DATE_RE.finditer(full_line))
             if len(all_dates) < 2:
                 issues.append({"file": pdf_name, "issue": "could not find HDFC value date", "line": full_line})
+                # This row is skipped entirely, but it may have carried a
+                # real balance-changing amount we can't recover (see the
+                # identical reset below) - `balance` can't be trusted for
+                # whatever row comes next either.
+                balance = None
                 continue
             amount_matches = list(HDFC_AMOUNT_RE.finditer(full_line[all_dates[-1].end() :]))
 
@@ -187,6 +192,18 @@ def build_hdfc_transactions(text, pdf_name, bank, st_from, st_to, opening_balanc
         trailing = full_line[all_dates[-1].end() :]
         if len(amount_matches) < 2:
             issues.append({"file": pdf_name, "issue": "could not find HDFC amounts", "line": full_line})
+            # A skipped row's own withdrawal/deposit still moved the real
+            # account balance even though we couldn't read it (e.g. OCR
+            # garbling a digit into a letter, "7,455.12" -> "T,A55.12") -
+            # `balance` is now stale, not just missing. Left alone, the
+            # *next* row's delta-based debit/credit check below would
+            # silently compare against the wrong prior balance instead of
+            # skipping the (now unverifiable) validation. Resetting to
+            # None routes that next row through the same
+            # opening-balance-unknown fallback already used for the very
+            # first transaction: guess from the printed sign and say so,
+            # rather than trust a delta computed against a stale balance.
+            balance = None
             continue
 
         closing = parse_amount(amount_matches[-1].group(0))

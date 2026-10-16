@@ -105,11 +105,23 @@ def process_single_pdf(pdf_path, manual_passwords, use_ocr=False, auto_ocr=False
             ocr_available = False
             ocr_import_error = str(e)
 
+        # A 50-100 page scanned statement can take tens of minutes to OCR,
+        # with the old code reporting nothing at all in between - from the
+        # UI (which just echoes each "progress" line's message) that's
+        # indistinguishable from having hung, and was the actual cause of
+        # a "nothing is happening" report on an 89-page HDFC scan that in
+        # fact just takes ~20 minutes. Reporting each page as it finishes
+        # keeps the ticker moving for the whole duration instead of only
+        # at the very start and the very end.
+        def _ocr_progress(current, total):
+            label = f"page {current} of {total}" if total else f"page {current}"
+            print(json.dumps({"type": "progress", "message": f"OCR: {label} - {pdf_path.name}"}), flush=True)
+
         is_ocr_text = False
         if use_ocr:
             if not ocr_available:
                 return {"success": False, "file": pdf_path.name, "issue": f"OCR dependencies are missing. Please install pytesseract and pdf2image. Details: {ocr_import_error}", "bank": "Unknown"}
-            text, pages, password = extract_text_with_ocr(pdf_path, manual_passwords)
+            text, pages, password = extract_text_with_ocr(pdf_path, manual_passwords, on_progress=_ocr_progress)
             is_ocr_text = True
         else:
             text, pages, password = read_pdf_text(pdf_path, manual_passwords)
@@ -123,7 +135,7 @@ def process_single_pdf(pdf_path, manual_passwords, use_ocr=False, auto_ocr=False
                 # independently of pdfplumber, so it can still succeed here.
                 if pages == 0 or is_scanned_pdf(text, pages):
                     print(json.dumps({"type": "progress", "message": f"Scanned PDF detected for {pdf_path.name}. Using OCR extraction."}), flush=True)
-                    text, pages, password = extract_text_with_ocr(pdf_path, manual_passwords)
+                    text, pages, password = extract_text_with_ocr(pdf_path, manual_passwords, on_progress=_ocr_progress)
                     is_ocr_text = True
 
         bank = detect_bank(text, pdf_path.name)

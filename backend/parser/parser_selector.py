@@ -27,6 +27,7 @@ from .canara_parser import build_canara_transactions
 from .kvb_parser import build_kvb_transactions
 from .bob_parser import build_bob_transactions
 from .boi_parser import build_boi_transactions
+from .bassein_parser import build_bassein_transactions
 
 
 # Indian bank IFSC prefixes (the first 4 letters of any IFSC code, e.g.
@@ -55,8 +56,18 @@ _IFSC_PREFIX_TO_BANK = {
     "JSFB": "Jana Small Finance Bank",
     "CNRB": "Canara Bank",
     "KVBL": "Karur Vysya Bank",
+    "BACB": "Bassein Catholic Co-op Bank",
 }
-_LABELLED_IFSC_RE = re.compile(r"IFSC\s*(?:CODE)?\s*:?\s*([A-Z]{4})\s*0[A-Z0-9]{6}", re.I)
+# The gap between the word "IFSC" and its actual code varies by bank -
+# some print no separator at all ("IFSC UBIN0561380", "IFSC Code
+# CNRB0004503"), others a colon ("IFSC : BACB0000018"), others a longer
+# label with a colon ("IFSC Code / MICR Code : BACB0000006 / 400238006").
+# Restricting the gap to only label-shaped characters (letters, slashes,
+# whitespace, colons - never digits or other punctuation) lets one
+# pattern cover every such label wording without needing a hardcoded
+# variant per bank, while staying too narrow to ever bridge across into
+# unrelated text elsewhere in the document.
+_LABELLED_IFSC_RE = re.compile(r"IFSC[A-Za-z/\s:]{0,30}?([A-Z]{4})\s*0[A-Z0-9]{6}", re.I)
 
 
 def _bank_from_labelled_ifsc(text):
@@ -225,6 +236,7 @@ _BUILDERS = {
     "Karur Vysya Bank": build_kvb_transactions,
     "Bank of Baroda": build_bob_transactions,
     "Bank of India": build_boi_transactions,
+    "Bassein Catholic Co-op Bank": build_bassein_transactions,
 }
 
 

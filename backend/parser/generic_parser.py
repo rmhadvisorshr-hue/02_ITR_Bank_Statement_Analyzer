@@ -23,6 +23,23 @@ DATE_START_RE = re.compile(
     r"^\s*(?:\d+\s+)?'?(?:\d{2}[-/.]\d{2}[-/.]\d{4}|\d{2}[-/.]\d{2}[-/.]\d{2}|\d{2}[-/][A-Za-z]{3}[-/]\d{4}|\d{2}\s+[A-Za-z]{3}\s+\d{4})\b",
     re.I,
 )
+# A line containing *only* a date and nothing else is never the start of a
+# genuine new transaction in any layout this engine handles - every real
+# row prints narration/amount content on the same physical line as its own
+# date. Some statements wrap a "Dated DD-MMM-YYYY" cheque-clearance
+# reference (embedded inside a multi-line narration) onto its own line
+# purely because of where the PDF's line wrap fell, which otherwise
+# satisfies DATE_START_RE identically to a real row and would wrongly be
+# read as a new transaction - truncating the real row's narration and
+# dropping a bogus, zero-amount "transaction" for the reference date
+# itself (harmless to totals, since it never has 2 amounts and gets
+# skipped below, but it does corrupt narration and silently eats rows
+# further down the page whenever it splits a row that itself needed the
+# continuation text this line stole).
+_BARE_DATE_RE = re.compile(
+    r"^(?:\d{2}[-/.]\d{2}[-/.]\d{4}|\d{2}[-/.]\d{2}[-/.]\d{2}|\d{2}[-/][A-Za-z]{3}[-/]\d{4}|\d{2}\s+[A-Za-z]{3}\s+\d{4})$",
+    re.I,
+)
 BOILER_RE = re.compile(
     r"(Page\s+\d+|PageNo|Registered Office|This is a computer generated|"
     r"Generated On|STATEMENT OF ACCOUNT$|Transaction Value Date Particulars|"
@@ -316,7 +333,7 @@ def build_transactions(
     for line in lines:
         if BOILER_RE.search(line):
             continue
-        if DATE_START_RE.match(line):
+        if DATE_START_RE.match(line) and not (current and _BARE_DATE_RE.match(line)):
             if current:
                 txs.append(current)
             current = {"line": line, "continuation": list(pending)}
@@ -505,9 +522,45 @@ def build_transactions(
 
         raw_text = " ".join([line] + tx["continuation"])
         narration = raw_text[cut:]
-        for m in reversed(amount_matches):
-            narration = narration.replace(m.group(0), " ", 1)
-        narration = re.sub(r"\b(?:Dr|Cr)\b", " ", narration, flags=re.I)
+        # Cut amount_matches out of `narration` by their own match spans,
+        # not by re-searching for their text: amount_source's match
+        # positions are always valid offsets straight into `narration`
+        # (amount_source is either exactly line_after_date, which is
+        # narration's own prefix, or - in the "full" scope fallback -
+        # exactly equal to narration itself). Removing by content instead
+        # (the old `narration.replace(m.group(0), " ", 1)`) silently
+        # corrupts narration whenever a smaller amount's full text is a
+        # trailing substring of a larger one on the same row - e.g. a
+        # zero-value column printed as "0.00" is a literal substring of
+        # any "X,000.00" amount elsewhere on that row - because replace()
+        # matches the leftmost occurrence in the string, which can land
+        # inside the larger number instead of the real standalone token,
+        # chewing off its last 4 characters and then failing to find the
+        # (now-mangled) larger amount's own removal pass at all.
+        spans = sorted((m.start(), m.end()) for m in amount_matches)
+        pieces = []
+        prev_end = 0
+        for start, end in spans:
+            if start < prev_end:
+                continue
+            # A balance printed as "252,704.71Dr" attaches its sign
+            # suffix directly to the digits with no space in between
+            # (the same assumption `parse_balance_from_match` above
+            # already makes) - consume it here too so it doesn't leak
+            # into narration as a dangling "Dr"/"Cr". Requiring no gap
+            # is deliberate: it's what keeps this from also eating a
+            # genuine, free-standing "DR"/"CR" that's part of the
+            # narration's own text elsewhere on the row (e.g. "RTGS
+            # DR-...", "NEFT CR-...", "FT - CR -"), which always has a
+            # space or hyphen before it and is never attached to the
+            # amount that was just cut out.
+            suffix_match = re.match(r"(?:Dr|Cr)\b", narration[end:], re.I)
+            if suffix_match:
+                end += suffix_match.end()
+            pieces.append(narration[prev_end:start])
+            prev_end = end
+        pieces.append(narration[prev_end:])
+        narration = "".join(pieces)
         narration = re.sub(r"\s+", " ", narration).strip(" -")
         if not narration:
             narration = re.sub(r"\s+", " ", raw_text).strip()
