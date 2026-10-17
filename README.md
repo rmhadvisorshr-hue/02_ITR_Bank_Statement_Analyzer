@@ -98,3 +98,5 @@ Starts a static file server on `http://localhost:5500` for `frontend\public` onl
 
 - This is a BETA app. Your PDFs are processed on your own computer.
 - If port `8765` is already busy, stop the old server process before starting a new one.
+
+<!-- evening.ps1 test line - safe to delete -->
